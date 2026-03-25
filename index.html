@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bäckerei Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #F4F1EC;
+  --surface:  #FFFFFF;
+  --surface2: #EDEAE3;
+  --border:   rgba(0,0,0,0.1);
+  --text:     #1C1A16;
+  --muted:    #7A776E;
+  --green:    #2D5A3D;
+  --green-bg: #EAF3DE;
+  --amber:    #854F0B;
+  --amber-bg: #FAEEDA;
+  --red:      #A32D2D;
+  --red-bg:   #FCEBEB;
+  --blue:     #185FA5;
+  --blue-bg:  #E6F1FB;
+  --sans: 'Segoe UI', system-ui, sans-serif;
+  --mono: 'Courier New', monospace;
+}
+
+body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ── Header ── */
+header {
+  background: var(--green);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+header h1 { color: #fff; font-size: 18px; font-weight: 500; letter-spacing: -0.3px; }
+.header-sub { color: rgba(255,255,255,0.65); font-size: 13px; }
+
+/* ── Filter Bar ── */
+.filter-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.filter-group { display: flex; align-items: center; gap: 8px; }
+.filter-group label { font-size: 13px; color: var(--muted); white-space: nowrap; }
+select, input[type=date] {
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+select:focus, input[type=date]:focus { outline: 2px solid var(--green); outline-offset: 1px; }
+
+.btn-load {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 16px;
+  border-radius: 6px;
+  border: none;
+  background: var(--green);
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.btn-load:hover { opacity: 0.85; }
+.btn-load:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.status-pill {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+.status-pill.ok { background: var(--green-bg); color: var(--green); }
+.status-pill.err { background: var(--red-bg); color: var(--red); }
+
+/* ── Config Banner ── */
+.config-banner {
+  margin: 16px 24px 0;
+  padding: 12px 16px;
+  background: var(--amber-bg);
+  border: 1px solid #FAC775;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--amber);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.config-banner input {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid #FAC775;
+  border-radius: 4px;
+  background: #fff;
+  color: var(--text);
+}
+
+/* ── Main Grid ── */
+main { padding: 20px 24px; display: grid; gap: 16px; }
+
+/* ── KPI Cards ── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+}
+.kpi-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.kpi-value { font-size: 26px; font-weight: 500; letter-spacing: -1px; line-height: 1; }
+.kpi-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.kpi-card.green .kpi-value { color: var(--green); }
+.kpi-card.amber .kpi-value { color: var(--amber); }
+.kpi-card.red   .kpi-value { color: var(--red); }
+.kpi-card.blue  .kpi-value { color: var(--blue); }
+
+/* ── Chart Cards ── */
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px;
+}
+.chart-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  color: var(--text);
+}
+.chart-title span { color: var(--muted); font-weight: 400; font-size: 13px; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+/* ── Tabelle ── */
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--muted);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.data-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+.data-table tr:last-child td { border-bottom: none; }
+.data-table tr:hover td { background: var(--surface2); }
+.data-table td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 12px; }
+
+/* Ampel-Badges */
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+.badge.green { background: var(--green-bg); color: var(--green); }
+.badge.amber { background: var(--amber-bg); color: var(--amber); }
+.badge.red   { background: var(--red-bg);   color: var(--red); }
+
+/* ── Loader ── */
+.loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* ── Mehrere Daten: Trend ── */
+.trend-up   { color: var(--green); }
+.trend-down { color: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Bäckerei — Tagesanalyse</h1>
+    <div class="header-sub" id="header-sub">Daten werden geladen...</div>
+  </div>
+  <div id="status-pill" class="status-pill">nicht verbunden</div>
+</header>
+
+<!-- Webhook-URL Konfiguration -->
+<div class="config-banner" id="config-banner" style="display:none">
+  <span>Webhook-Basis-URL:</span>
+  <input type="text" id="base-url"
+    placeholder="https://dein-n8n.de/webhook"
+    value="https://dein-n8n.de/webhook">
+  <button class="btn-load" onclick="saveBaseUrl()">Speichern</button>
+</div>
+
+<!-- Filter -->
+<div class="filter-bar">
+  <div class="filter-group">
+    <label>Datum</label>
+    <input type="date" id="filter-datum1" />
+    <span style="color:var(--muted);font-size:13px;">bis</span>
+    <input type="date" id="filter-datum2" />
+  </div>
+  <div class="filter-group">
+    <label>Filiale</label>
+    <select id="filter-filiale">
+      <option value="alle">Alle Filialen</option>
+    </select>
+  </div>
+  <button class="btn-load" id="btn-load" onclick="loadAll()">Laden</button>
+</div>
+
+<main>
+  <!-- KPI Row -->
+  <div class="kpi-grid" id="kpi-grid">
+    <div class="kpi-card blue">
+      <div class="kpi-label">Tagesumsatz</div>
+      <div class="kpi-value" id="kpi-umsatz">—</div>
+      <div class="kpi-sub" id="kpi-umsatz-sub">Filialen gesamt</div>
+    </div>
+    <div class="kpi-card green">
+      <div class="kpi-label">Verkaufte Stück</div>
+      <div class="kpi-value" id="kpi-menge">—</div>
+      <div class="kpi-sub" id="kpi-menge-sub">Gesamtmenge</div>
+    </div>
+    <div class="kpi-card amber">
+      <div class="kpi-label">Retouren-Artikel</div>
+      <div class="kpi-value" id="kpi-retouren">—</div>
+      <div class="kpi-sub">mit Retourquote &gt; 0%</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Artikel gelistet</div>
+      <div class="kpi-value" id="kpi-artikel">—</div>
+      <div class="kpi-sub">verschiedene Produkte</div>
+    </div>
+  </div>
+
+  <!-- Umsatz pro Filiale + Trend -->
+  <div class="two-col">
+    <div class="chart-card">
+      <div class="chart-title">Umsatz pro Filiale <span id="umsatz-datum-label"></span></div>
+      <div style="position:relative;height:320px;">
+        <canvas id="chart-filialen"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Tagesverlauf Umsatz <span>(alle Filialen)</span></div>
+      <div style="position:relative;height:320px;">
+        <canvas id="chart-trend"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Artikel + Retouren -->
+  <div class="two-col">
+    <div class="chart-card">
+      <div class="chart-title">Top-Artikel nach Umsatz</div>
+      <div id="table-artikel"><div class="loader">Daten laden...</div></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">Retouren-Ranking <span style="color:var(--red)">Handlungsbedarf</span></div>
+      <div id="table-retouren"><div class="loader">Daten laden...</div></div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── Konfiguration ─────────────────────────────────────────────
+let BASE_URL = 'https://server02.n8n.zaruba-edv.at/webhook';
+
+function saveBaseUrl() { loadMeta(); }
+
+// ── Datum-Defaults ────────────────────────────────────────────
+(function initDates() {
+  const today = new Date();
+  const fmt = d => d.toISOString().split('T')[0];
+  const minus = (d, n) => { const x = new Date(d); x.setDate(x.getDate()-n); return x; };
+
+  document.getElementById('filter-datum2').value = fmt(minus(today, 1));
+  document.getElementById('filter-datum1').value = fmt(minus(today, 7));
+
+  loadMeta();
+})();
+
+// ── API Helper ────────────────────────────────────────────────
+async function api(path, params = {}) {
+  const url = new URL(BASE_URL + '/' + path);
+  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k, v));
+  const res = await fetch(url.toString());
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function getParams() {
+  const d1 = document.getElementById('filter-datum1').value;
+  const d2 = document.getElementById('filter-datum2').value;
+  const filiale = document.getElementById('filter-filiale').value;
+
+  // Alle Tage zwischen d1 und d2
+  const dates = [];
+  const cur = new Date(d1);
+  const end = new Date(d2);
+  while (cur <= end) {
+    dates.push(cur.toISOString().split('T')[0]);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return { datum: dates.join(','), filiale };
+}
+
+// ── Meta laden (Filialen + verfügbare Daten) ──────────────────
+async function loadMeta() {
+  try {
+    const data = await api('bakery/meta');
+    const row = Array.isArray(data) ? data[0] : data;
+
+    // Filial-Dropdown befüllen
+    const sel = document.getElementById('filter-filiale');
+    sel.innerHTML = '<option value="alle">Alle Filialen</option>';
+    const filialen = row.filialen || [];
+    filialen.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = `${f.id} ${f.name}`;
+      sel.appendChild(opt);
+    });
+
+    // Datum-Range auf verfügbare Daten setzen
+    if (row.daten && row.daten.length > 0) {
+      const daten = row.daten.map(d => d.substring(0,10)).sort();
+      document.getElementById('filter-datum1').value = daten[daten.length > 6 ? daten.length-7 : 0];
+      document.getElementById('filter-datum2').value = daten[daten.length-1];
+    }
+
+    setPill('ok', 'verbunden');
+    document.getElementById('config-banner').style.display = 'none';
+    loadAll();
+  } catch(e) {
+    setPill('err', 'Verbindungsfehler');
+    console.error(e);
+  }
+}
+
+function setPill(cls, txt) {
+  const p = document.getElementById('status-pill');
+  p.className = 'status-pill ' + cls;
+  p.textContent = txt;
+}
+
+// ── Charts ────────────────────────────────────────────────────
+let chartFilialen = null, chartTrend = null;
+
+function destroyChart(c) { if (c) c.destroy(); }
+
+function buildFilialenChart(data) {
+  destroyChart(chartFilialen);
+  // Letztes Datum nehmen für Filial-Balken
+  const lastDate = [...new Set(data.map(d => d.datum))].sort().pop();
+  const filtered = data.filter(d => d.datum === lastDate).slice(0, 15);
+
+  const COLORS = ['#2D5A3D','#3A7A52','#4A9A67','#5AB07C','#85C79A',
+                  '#A8D9B8','#185FA5','#2179C7','#4A96D8','#78B4E5',
+                  '#854F0B','#B06A10','#D4851A','#E8A540','#F0C070'];
+
+  chartFilialen = new Chart(document.getElementById('chart-filialen'), {
+    type: 'bar',
+    data: {
+      labels: filtered.map(d => d.filiale_name),
+      datasets: [{
+        data: filtered.map(d => parseFloat(d.umsatz)),
+        backgroundColor: filtered.map((_, i) => COLORS[i % COLORS.length]),
+        borderRadius: 4,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` € ${ctx.parsed.x.toLocaleString('de-AT', {minimumFractionDigits:2})}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: {
+            font: { size: 11 },
+            callback: v => '€' + (v/1000).toFixed(0) + 'k'
+          }
+        },
+        y: { ticks: { font: { size: 12 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+function buildTrendChart(data) {
+  destroyChart(chartTrend);
+  const daten = [...new Set(data.map(d => d.datum))].sort();
+  const umsatzPerDay = daten.map(date =>
+    data.filter(d => d.datum === date).reduce((s, d) => s + parseFloat(d.umsatz), 0)
+  );
+
+  chartTrend = new Chart(document.getElementById('chart-trend'), {
+    type: 'line',
+    data: {
+      labels: daten.map(d => {
+        const dt = new Date(d);
+        return dt.toLocaleDateString('de-AT', { weekday: 'short', day:'numeric', month:'numeric' });
+      }),
+      datasets: [{
+        data: umsatzPerDay,
+        borderColor: '#2D5A3D',
+        backgroundColor: 'rgba(45,90,61,0.08)',
+        borderWidth: 2,
+        pointRadius: 4,
+        pointBackgroundColor: '#2D5A3D',
+        fill: true,
+        tension: 0.3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => ` € ${ctx.parsed.y.toLocaleString('de-AT', {minimumFractionDigits:2})}`
+          }
+        }
+      },
+      scales: {
+        x: { ticks: { font: { size: 11 }, maxRotation: 45 }, grid: { display: false } },
+        y: {
+          grid: { color: 'rgba(0,0,0,0.05)' },
+          ticks: {
+            font: { size: 11 },
+            callback: v => '€' + (v/1000).toFixed(0) + 'k'
+          }
+        }
+      }
+    }
+  });
+}
+
+// ── Tabellen ──────────────────────────────────────────────────
+function buildArtikelTable(data) {
+  if (!data.length) { document.getElementById('table-artikel').innerHTML = '<div class="loader">Keine Daten</div>'; return; }
+  const rows = data.slice(0, 20).map((r, i) => `
+    <tr>
+      <td style="color:var(--muted);font-size:11px;">${i+1}</td>
+      <td>${r.bezeichnung}</td>
+      <td class="num">${parseInt(r.in_filialen)}</td>
+      <td class="num">${parseInt(r.menge).toLocaleString('de-AT')}</td>
+      <td class="num" style="font-weight:500;">€ ${parseFloat(r.umsatz).toLocaleString('de-AT', {minimumFractionDigits:2})}</td>
+    </tr>`).join('');
+  document.getElementById('table-artikel').innerHTML = `
+    <table class="data-table">
+      <thead><tr>
+        <th>#</th><th>Artikel</th><th>Filialen</th><th>Stück</th><th>Umsatz</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function buildRetourenTable(data) {
+  if (!data.length) { document.getElementById('table-retouren').innerHTML = '<div class="loader">Keine Retouren</div>'; return; }
+  const rows = data.slice(0, 20).map(r => {
+    const pct = parseFloat(r.avg_retoure_pct);
+    const cls = pct > 50 ? 'red' : pct > 25 ? 'amber' : 'green';
+    return `
+    <tr>
+      <td>${r.bezeichnung}</td>
+      <td class="num">${parseInt(r.retoure_menge_gesamt)}</td>
+      <td class="num"><span class="badge ${cls}">${pct.toFixed(1)} %</span></td>
+      <td class="num" style="color:var(--muted);font-size:11px;">${parseInt(r.in_filialen)} Fil.</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('table-retouren').innerHTML = `
+    <table class="data-table">
+      <thead><tr>
+        <th>Artikel</th><th>Stück ret.</th><th>Ø Quote</th><th>Filialen</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ── KPI Update ────────────────────────────────────────────────
+function updateKPIs(umsatzData, artikelData, retourenData) {
+  const totalUmsatz = umsatzData.reduce((s, d) => s + parseFloat(d.umsatz), 0);
+  const totalMenge  = umsatzData.reduce((s, d) => s + parseInt(d.menge||0), 0);
+  const filialen    = new Set(umsatzData.map(d => d.filiale_id)).size;
+
+  document.getElementById('kpi-umsatz').textContent =
+    '€ ' + totalUmsatz.toLocaleString('de-AT', {minimumFractionDigits:2, maximumFractionDigits:2});
+  document.getElementById('kpi-umsatz-sub').textContent = `${filialen} Filialen`;
+  document.getElementById('kpi-menge').textContent = totalMenge.toLocaleString('de-AT');
+  document.getElementById('kpi-menge-sub').textContent = `${artikelData.length} Artikel`;
+  document.getElementById('kpi-artikel').textContent = artikelData.length;
+  document.getElementById('kpi-retouren').textContent = retourenData.length;
+
+  const daten = [...new Set(umsatzData.map(d => d.datum))].sort();
+  document.getElementById('header-sub').textContent =
+    daten.length > 1
+      ? `${daten[0]} bis ${daten[daten.length-1]} — ${daten.length} Tage`
+      : daten[0] || '';
+  document.getElementById('umsatz-datum-label').textContent =
+    daten.length > 0 ? `(${daten[daten.length-1]})` : '';
+}
+
+// ── Haupt-Ladefunktion ────────────────────────────────────────
+async function loadAll() {
+  const btn = document.getElementById('btn-load');
+  btn.disabled = true;
+  btn.textContent = 'Lädt...';
+  setPill('', 'lädt...');
+
+  try {
+    const params = getParams();
+    const [umsatzData, artikelData, retourenData] = await Promise.all([
+      api('bakery/umsatz',   params),
+      api('bakery/artikel',  params),
+      api('bakery/retouren', params),
+    ]);
+
+    updateKPIs(umsatzData, artikelData, retourenData);
+    buildFilialenChart(umsatzData);
+    buildTrendChart(umsatzData);
+    buildArtikelTable(artikelData);
+    buildRetourenTable(retourenData);
+
+    setPill('ok', 'aktuell');
+  } catch(e) {
+    setPill('err', 'Fehler: ' + e.message);
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Laden';
+  }
+}
+</script>
+</body>
+</html>
